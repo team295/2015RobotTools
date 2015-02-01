@@ -9,6 +9,7 @@ Requires a log file with some lines in the following format:
 '''
 
 import csv
+import os
 import re
 import sys
 
@@ -23,6 +24,8 @@ vals_t, vals_i, vals_o, vals_s = [], [], [], []
 
 def parse_file():
 	try:
+		if os.stat(sys.argv[1]).st_size < 1:
+			sys.exit('Empty log file')
 		with open(sys.argv[1], 'rb') as f:
 			reader = csv.reader(f, delimiter='\t')
 			for line, row in enumerate(reader, start=1):
