@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+'''
+Uses matplotlib to plot PID input, output, and setpoints.
+
+Requires a log file with some lines in the following format:
+[unix_time] [robot_uptime] [robot_iteration] [event_type] [input] [output] [setpoint]
+(in truth, the unix_time and robot_iteration aren't used, so placeholders are OK)
+'''
+
+import csv
+import re
+import sys
+
+import numpy as np
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+
+if len(sys.argv) != 3:
+	sys.exit('Usage: ./plot_PID [log_file] [event_type_query]')
+
+vals_t, vals_i, vals_o, vals_s = [], [], [], []
+
+def parse_file():
+	try:
+		with open(sys.argv[1], 'rb') as f:
+			reader = csv.reader(f, delimiter='\t')
+			for line, row in enumerate(reader, start=1):
+				match = re.search(sys.argv[2], str(row))
+				if match:
+					try:
+						float(row[1])
+						float(row[4])
+						float(row[5])
+						float(row[6])
+					except ValueError:
+						print('Malformed line {} excluded'.format(line))
+						continue
+					if len(vals_t) > 0 and float(row[1]) < vals_t[-1]:
+						print('Anachronistic line {} excluded'.format(line))
+						continue
+					vals_t.append(float(row[1]))
+					vals_i.append(float(row[4]))
+					vals_o.append(float(row[5]))
+					vals_s.append(float(row[6]))
+	except EnvironmentError:
+		sys.exit('File not accessible')
+
+def plot():
+	fig, ax1 = plt.subplots()
+	ax1.set_xlabel('time (s)')
+
+	ax1.plot(vals_t, vals_i, 'b-')
+	ax1.plot(vals_t, vals_s, 'c--')
+	ax1.set_ylabel('encoder count', color='b')
+	for tl in ax1.get_yticklabels():
+		tl.set_color('b')
+
+	ax2 = ax1.twinx()
+	ax2.plot(vals_t, vals_o, 'r-')
+	ax2.set_ylabel('motor output', color='r')
+	for tl in ax2.get_yticklabels():
+		tl.set_color('r')
+	
+	plt.legend(handles=[
+		mpatches.Patch(color='b', label='input'),
+		mpatches.Patch(color='c', label='desired'),
+		mpatches.Patch(color='r', label='output'),
+	])
+
+	plt.show()
+
+def main():
+	parse_file()
+	plot()
+
+if __name__ == '__main__':
+	main()
+
+
