@@ -8,6 +8,7 @@ Requires a log file with some lines in the following format:
 (in truth, the unix_time and robot_iteration aren't used, so placeholders are OK)
 '''
 
+import argparse
 import csv
 import os
 import re
@@ -17,16 +18,26 @@ import numpy as np
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 
-if len(sys.argv) != 3:
-	sys.exit('Usage: ./plot_PID [log_file] [event_type_query]')
+def get_nonzero_logs(absdir):
+	return [f for f in os.listdir(absdir)
+			if re.match(r'log_[\d-]+_\d+', f)
+			and os.stat(os.path.join(absdir, f)).st_size > 0]
 
-vals_t, vals_i, vals_o, vals_s = [], [], [], []
+def get_latest_log(absdir):
+	return sorted(get_nonzero_logs(absdir))[-1]
 
-def parse_file():
+def get_latest_run_logs(absdir):
+	pref_match = re.match(r'(log_[\d-]+_)\d+', get_latest_log(absdir))
+	if pref_match:
+		return sorted([f for f in get_nonzero_logs(absdir)
+				if re.match(pref_match.group(1), f)])
+
+def parse_file(fname):
+	vt, vi, vo, vs = [], [], [], []
 	try:
-		if os.stat(sys.argv[1]).st_size < 1:
-			sys.exit('Empty log file')
-		with open(sys.argv[1], 'rb') as f:
+		if os.stat(fname).st_size < 1:
+			print('Empty log file {}'.format(fname))
+		with open(fname, 'rb') as f:
 			reader = csv.reader(f, delimiter='\t')
 			for line, row in enumerate(reader, start=1):
 				match = re.search(sys.argv[2], str(row))
@@ -39,43 +50,102 @@ def parse_file():
 					except ValueError:
 						print('Malformed line {} excluded'.format(line))
 						continue
-					if len(vals_t) > 0 and float(row[1]) < vals_t[-1]:
+					if len(vt) > 0 and float(row[1]) < vt[-1]:
 						print('Anachronistic line {} excluded'.format(line))
 						continue
-					vals_t.append(float(row[1]))
-					vals_i.append(float(row[4]))
-					vals_o.append(float(row[5]))
-					vals_s.append(float(row[6]))
+					vt.append(float(row[1]))
+					vi.append(float(row[4]))
+					vo.append(float(row[5]))
+					vs.append(float(row[6]))
+		return (vt, vi, vo, vs)
 	except EnvironmentError:
-		sys.exit('File not accessible')
+		print('File {} not accessible'.format(fname))
+		return None
 
-def plot():
+def plot(vt, vi, vo, vs, output_image=None):
 	fig, ax1 = plt.subplots()
 	ax1.set_xlabel('time (s)')
 
-	ax1.plot(vals_t, vals_i, 'b-')
-	ax1.plot(vals_t, vals_s, 'c--')
-	ax1.set_ylabel('encoder count', color='b')
+	ax1.plot(vt, vi, 'b-')
+	ax1.plot(vt, vs, 'c--')
+	ax1.set_ylabel('input', color='b')
 	for tl in ax1.get_yticklabels():
 		tl.set_color('b')
 
 	ax2 = ax1.twinx()
-	ax2.plot(vals_t, vals_o, 'r-')
-	ax2.set_ylabel('motor output', color='r')
+	ax2.plot(vt, vo, 'r-')
+	ax2.set_ylabel('output', color='r')
 	for tl in ax2.get_yticklabels():
 		tl.set_color('r')
 	
+	#plt.grid(b=True, which='both', axis='x', linestyle='-', linewidth=1)
+	ax1.xaxis.grid(True, which='both')
+
 	plt.legend(handles=[
 		mpatches.Patch(color='b', label='input'),
-		mpatches.Patch(color='c', label='desired'),
+		mpatches.Patch(color='c', label='setpoint'),
 		mpatches.Patch(color='r', label='output'),
 	])
 
-	plt.show()
+	if output_image:
+		plt.savefig(output_image)
+	else:
+		plt.show()
 
 def main():
-	parse_file()
-	plot()
+	# Parse arguments
+	aparser = argparse.ArgumentParser(description='Plot PID data from a log file.')
+	aparser.add_argument('event',
+			type=str,
+			metavar='EVENT',
+			help='the event type of the plotted events log file (can be partial)')
+	aparser.add_argument('-o',
+			action='store_true',
+			help='save output image to ./plots/ instead of showing in a GUI')
+
+	# Log input subparser
+	fparser = aparser.add_mutually_exclusive_group(required=True)
+	fparser.add_argument('-f',
+			nargs='+',
+			#type=file,
+			help='the log file(s) to plot')
+	fparser.add_argument('-l',
+			action='store_true',
+			help='plot latest log file from ./logs/')
+	fparser.add_argument('-L',
+			action='store_true',
+			help='plot all log files from latest run from ./logs/')
+
+	args = aparser.parse_args()
+
+	# Files to plot
+	files = []
+	if args.f:
+		files.extend(args.f)
+	elif args.l or args.L:
+		logdir = os.path.join(os.getcwd(), 'logs')
+		if not os.path.isdir(logdir):
+			sys.exit('./logs/ not found')
+		elif args.l:
+			files.append(os.path.join(logdir, get_latest_log(logdir)))
+		elif args.L:
+			files.extend([os.path.join(logdir, f)
+				for f in get_latest_run_logs(logdir)])
+	else:
+		sys.exit('No files specified')
+
+	if args.o:
+		plotdir = os.path.join(os.getcwd(), 'plots')
+		if not (os.path.isdir(plotdir) and os.access(plotdir, os.W_OK)):
+			sys.exit('Output directory {} not accessible'.format(plotdir))
+
+	print('Plot queue: {}'.format(files))
+	for f in files:
+		print('\nPlotting {}'.format(f))
+		vals = parse_file(f)
+		if vals:
+			plotpath = os.path.join(plotdir, '{}.png'.format(f)) if args.o else None
+			plot(*vals, output_image=plotpath)
 
 if __name__ == '__main__':
 	main()
