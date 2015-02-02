@@ -78,14 +78,16 @@ def plot(vt, vi, vo, vs, output_image=None):
 	for tl in ax2.get_yticklabels():
 		tl.set_color('r')
 	
-	#plt.grid(b=True, which='both', axis='x', linestyle='-', linewidth=1)
 	ax1.xaxis.grid(True, which='both')
 
-	plt.legend(handles=[
-		mpatches.Patch(color='b', label='input'),
-		mpatches.Patch(color='c', label='setpoint'),
-		mpatches.Patch(color='r', label='output'),
-	])
+	plt.legend(
+			fontsize='small',
+			handles=[
+					mpatches.Patch(color='b', label='input'),
+					mpatches.Patch(color='c', label='setpoint'),
+					mpatches.Patch(color='r', label='output')],
+			bbox_to_anchor=(0., 1.02, 1., .102),
+			mode='expand', ncol=3, loc=9)
 
 	if output_image:
 		plt.savefig(output_image)
