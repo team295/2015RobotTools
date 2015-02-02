@@ -95,9 +95,10 @@ def plot(vt, vi, vo, vs, output_image=None):
 def main():
 	# Parse arguments
 	aparser = argparse.ArgumentParser(description='Plot PID data from a log file.')
-	aparser.add_argument('event',
+	aparser.add_argument('-e',
+			required=True,
 			type=str,
-			metavar='EVENT',
+			#metavar='EVENT',
 			help='the event type of the plotted events log file (can be partial)')
 	aparser.add_argument('-o',
 			action='store_true',
@@ -141,10 +142,10 @@ def main():
 
 	print('Plot queue: {}'.format(files))
 	for f in files:
-		print('\nPlotting {}'.format(f))
 		vals = parse_file(f)
 		if vals:
-			plotpath = os.path.join(plotdir, '{}.png'.format(f)) if args.o else None
+			plotpath = os.path.join(plotdir,
+					'{}.png'.format(os.path.basename(f))) if args.o else None
 			plot(*vals, output_image=plotpath)
 
 if __name__ == '__main__':
