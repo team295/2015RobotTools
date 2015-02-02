@@ -27,36 +27,37 @@ sftp = paramiko.SFTPClient.from_transport(transport)
 
 # List last X nonzero-length logs
 remote_files = [f for f in sftp.listdir(REMOTE_LOG_PATH)
-		if sftp.stat(f).st_size > 0]
-remote_files = reversed(sorted(remote_files[:])[:NUM_LOGS])
+		if sftp.stat(REMOTE_LOG_PATH + f).st_size > 0]
+remote_files = list(reversed(sorted(remote_files[:])[:NUM_LOGS]))
 
 # Print filenames, numbered
 for i, f in enumerate(remote_files):
 	print('{}:\t\t{}'.format(i, f))
 
+files_to_get = []
 valid = False
 while not valid:
 	ui = raw_input('Log or range of logs to get: ')
-	mrange = re.match('(\d+)\-(\d+)')
-	msingle = re.match('(\d+)')
+	mrange = re.match('(\d+)\-(\d+)', ui)
+	msingle = re.match('(\d+)', ui)
 	if mrange:
 		valid = True
-		rl = mrange.group(1)
-		rh = mrange.group(2)
+		rl = int(mrange.group(1))
+		rh = int(mrange.group(2))
 		if rl < rh and rh < len(remote_files):
 			files_to_get = remote_files[rl:rh+1]
 	elif msingle:
 		valid = True
-		rs = mrange.group(1)
+		rs = int(msingle.group(1))
 		if rs < len(remote_files):
-			files_to_get = remote_files[rs:rs]
+			files_to_get = [remote_files[rs]]
 	else:
 		print('Invalid input. Examples: "3" or "1-4"')
 
 print('Download queue: {}'.format(files_to_get))
 for f in files_to_get:
 	print('Downloading {}'.format(f))
-	get(REMOTE_LOG_PATH + f, LOCAL_LOG_PATH + f)
+	sftp.get(REMOTE_LOG_PATH + f, os.path.join(LOCAL_LOG_PATH, f))
 
 transport.close()
 
