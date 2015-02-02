@@ -146,8 +146,10 @@ def main():
 	for f in files:
 		vals = parse_file(f)
 		if vals:
+			fname = os.path.basename(f)
 			plotpath = os.path.join(plotdir,
-					'{}.png'.format(os.path.basename(f))) if args.o else None
+					'{}.png'.format(fname)) if args.o else None
+			print('Plotting {} points from {}'.format(len(vals[1]), fname))
 			plot(*vals, output_image=plotpath)
 
 if __name__ == '__main__':
