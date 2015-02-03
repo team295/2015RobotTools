@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+
+import os
+import re
+import sys
+
+import paramiko
+
+# Connection constants
+HOST = '10.2.95.2'
+PORT = '22'
+USER = 'admin'
+PASS = ''
+
+# Other configuration
+REMOTE_LOG_PATH = '/home/lvuser/_logs/'
+LOCAL_LOG_PATH = os.path.join(os.getcwd(), 'logs')
+NUM_LOGS = 10
+
+if not os.path.isdir(LOCAL_LOG_PATH):
+	sys.exit('./logs/ not found')
+
+# Initialize transport and SFTP transport
+transport = paramiko.Transport((HOST, PORT))
+transport.connect(username=USER, password=PASS)
+sftp = paramiko.SFTPClient.from_transport(transport)
+
+# List last X nonzero-length logs
+remote_files = [f for f in sftp.listdir(REMOTE_LOG_PATH)
+		if sftp.stat(f).st_size > 0]
+remote_files = reversed(sorted(remote_files[:])[:NUM_LOGS])
+
+# Print filenames, numbered
+for i, f in enumerate(remote_files):
+	print('{}:\t\t{}'.format(i, f))
+
+valid = False
+while not valid:
+	ui = raw_input('Log or range of logs to get: ')
+	mrange = re.match('(\d+)\-(\d+)')
+	msingle = re.match('(\d+)')
+	if mrange:
+		valid = True
+		rl = mrange.group(1)
+		rh = mrange.group(2)
+		if rl < rh and rh < len(remote_files):
+			files_to_get = remote_files[rl:rh+1]
+	elif msingle:
+		valid = True
+		rs = mrange.group(1)
+		if rs < len(remote_files):
+			files_to_get = remote_files[rs:rs]
+	else:
+		print('Invalid input. Examples: "3" or "1-4"')
+
+print('Download queue: {}'.format(files_to_get))
+for f in files_to_get:
+	print('Downloading {}'.format(f))
+	get(REMOTE_LOG_PATH + f, LOCAL_LOG_PATH + f)
+
