@@ -8,7 +8,7 @@ import paramiko
 
 # Connection constants
 HOST = '10.2.95.2'
-PORT = '22'
+PORT = 22
 USER = 'admin'
 PASS = ''
 
@@ -57,4 +57,6 @@ print('Download queue: {}'.format(files_to_get))
 for f in files_to_get:
 	print('Downloading {}'.format(f))
 	get(REMOTE_LOG_PATH + f, LOCAL_LOG_PATH + f)
+
+transport.close()
 
